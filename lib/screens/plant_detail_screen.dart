@@ -8,8 +8,7 @@ class PlantDetailScreen extends StatelessWidget {
   final VoidCallback onDeleted;
 
   const PlantDetailScreen(
-      {Key? key, required this.plant, required this.onDeleted})
-      : super(key: key);
+      {super.key, required this.plant, required this.onDeleted});
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +88,8 @@ class PlantDetailScreen extends StatelessWidget {
               ),
             ),
 
+            const SizedBox(height: 20),
+
             // Botones de acción
             Row(
               children: [
@@ -116,27 +117,31 @@ class PlantDetailScreen extends StatelessWidget {
                       // Ventana de confirmación antes de borrar
                       showDialog(
                         context: context,
-                        builder: (BuildContext context) => AlertDialog(
+                        builder: (BuildContext dialogContext) => AlertDialog(
                           title: const Text('¿Estás seguro?'),
                           content: const Text(
                               'Esta acción eliminará el registro y la foto guardada permanentemente. No se podrá recuperar.'),
                           actions: [
                             TextButton(
                               onPressed: () => Navigator.pop(
-                                  context), // Cierra la alerta sin borrar
+                                  dialogContext), // Cierra la alerta sin borrar
                               child: const Text('Cancelar'),
                             ),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.red),
                               onPressed: () async {
-                                Navigator.pop(context); // Cierra la alerta
+                                // Capturamos todo ANTES del await (evita usar
+                                // el context después de una pausa asíncrona)
+                                final navigator = Navigator.of(context);
+                                final messenger = ScaffoldMessenger.of(context);
+
+                                Navigator.pop(dialogContext); // Cierra la alerta
                                 await storageService.deletePlant(
                                     plant); // Borra del almacenamiento
                                 onDeleted(); // Actualiza la lista en la biblioteca
-                                Navigator.pop(
-                                    context); // Sale de la pantalla de detalles
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                navigator.pop(); // Sale de la pantalla de detalles
+                                messenger.showSnackBar(
                                   const SnackBar(
                                       content: Text(
                                           'Registro eliminado de la biblioteca')),

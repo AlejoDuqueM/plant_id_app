@@ -1,10 +1,10 @@
 import 'dart:io';
-import 'package:plant_id_app/data/services/plant_api_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import '../../../data/models/plant_record.dart';
+import '../../../data/services/plant_api_service.dart';
 import '../../../services/plant_storage_service.dart';
-import '../../../screens/library_screen.dart'; // Ajusta esta ruta si tu pantalla de biblioteca está en otra carpeta
+import '../../../screens/library_screen.dart';
 
 class HomeView extends StatefulWidget {
   const HomeView({super.key});
@@ -33,10 +33,10 @@ class _HomeViewState extends State<HomeView> {
 
     try {
       final resultado = await _apiService.identifyPlant(imagen);
+      if (!mounted) return;
 
-      if (resultado != null && mounted) {
+      if (resultado != null) {
         setState(() {
-          // Asegúrate de que las llaves coincidan con lo que retorna tu PlantApiService
           _scientificName = resultado['scientificName'];
           _commonName = resultado['commonName'];
           _family = resultado['family'];
@@ -46,31 +46,40 @@ class _HomeViewState extends State<HomeView> {
 
         debugPrint(
             "API Cargar - Científico: $_scientificName | Familia: $_family");
+      } else {
+        _mostrarMensaje('No se pudo identificar la planta. Intenta de nuevo.');
       }
     } catch (e) {
       debugPrint('Error al identificar la planta: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('No se pudo identificar la planta. Intenta de nuevo.')),
-        );
-      }
+      _mostrarMensaje('No se pudo identificar la planta. Intenta de nuevo.');
     } finally {
       // Se ejecuta siempre: así el spinner nunca se queda cargando para siempre
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  void _mostrarMensaje(String texto) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(texto)),
+    );
+  }
+
   // 3. Seleccionar imagen (cámara o galería) y analizarla
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: source);
+    if (!mounted) return;
 
     if (pickedFile != null) {
       final imageFile = File(pickedFile.path);
       setState(() {
         _selectedImage = imageFile;
+        // Limpiamos el resultado anterior para no guardar datos de otra planta
+        _scientificName = null;
+        _commonName = null;
+        _family = null;
+        _detectedPlant = "Planta analizada";
       });
 
       // Dispara el análisis automático
@@ -78,7 +87,7 @@ class _HomeViewState extends State<HomeView> {
     }
   }
 
-  void _mostrarDialogoSugerencia(BuildContext context) {
+  void _mostrarDialogoSugerencia() {
     final TextEditingController suggestionController = TextEditingController();
     String tipoNombre = 'Común'; // Por defecto
 
@@ -159,7 +168,7 @@ class _HomeViewState extends State<HomeView> {
           ],
         ),
       ),
-    );
+    ).then((_) => suggestionController.dispose());
   }
 
   Future<void> _guardarIdentificacionCorrecta() async {
@@ -202,7 +211,7 @@ class _HomeViewState extends State<HomeView> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => LibraryScreen()),
+                MaterialPageRoute(builder: (context) => const LibraryScreen()),
               );
             },
           ),
@@ -297,8 +306,9 @@ class _HomeViewState extends State<HomeView> {
                       IconButton(
                         icon: const Icon(Icons.thumb_up, size: 30),
                         color: Colors.green,
-                        onPressed:
-                            _isLoading ? null : _guardarIdentificacionCorrecta,
+                        onPressed: (_isLoading || _selectedImage == null)
+                            ? null
+                            : _guardarIdentificacionCorrecta,
                       ),
                       const SizedBox(width: 20),
 
@@ -306,9 +316,9 @@ class _HomeViewState extends State<HomeView> {
                       IconButton(
                         icon: const Icon(Icons.thumb_down, size: 30),
                         color: Colors.red,
-                        onPressed: _isLoading
+                        onPressed: (_isLoading || _selectedImage == null)
                             ? null
-                            : () => _mostrarDialogoSugerencia(context),
+                            : _mostrarDialogoSugerencia,
                       ),
                     ],
                   ),

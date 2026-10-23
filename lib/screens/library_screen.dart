@@ -1,14 +1,14 @@
-import 'plant_detail_screen.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../data/models/plant_record.dart';
 import '../services/plant_storage_service.dart';
+import 'plant_detail_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({Key? key}) : super(key: key);
+  const LibraryScreen({super.key});
 
   @override
-  _LibraryScreenState createState() => _LibraryScreenState();
+  State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
@@ -23,7 +23,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Future<void> _loadHistory() async {
-    List<PlantRecord> history = await _storageService.getHistory();
+    final history = await _storageService.getHistory();
+    if (!mounted) return;
     setState(() {
       _history = history;
       _isLoading = false;
@@ -114,24 +115,27 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           onPressed: () {
                             showDialog(
                               context: context,
-                              builder: (BuildContext context) => AlertDialog(
+                              builder: (BuildContext dialogContext) =>
+                                  AlertDialog(
                                 title: const Text('¿Estás seguro?'),
                                 content: const Text(
                                     'Esta acción eliminará el registro y la foto guardada permanentemente. No se podrá recuperar.'),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.pop(context),
+                                    onPressed: () =>
+                                        Navigator.pop(dialogContext),
                                     child: const Text('Cancelar'),
                                   ),
                                   ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.red),
                                     onPressed: () async {
-                                      Navigator.pop(context);
+                                      final messenger =
+                                          ScaffoldMessenger.of(this.context);
+                                      Navigator.pop(dialogContext);
                                       await _storageService.deletePlant(plant);
-                                      _loadHistory();
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
+                                      await _loadHistory();
+                                      messenger.showSnackBar(
                                         const SnackBar(
                                             content: Text(
                                                 'Registro eliminado de la biblioteca')),
